@@ -18,7 +18,7 @@ import re
 import sys
 from pathlib import Path
 
-URL_RE = re.compile(r"https?://[^\s)\]]+")
+URL_RE = re.compile(r"https?://[^\s)>\]\"]+")
 HASHTAG_RE = re.compile(r"#\w+")
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.S)
 HEADER_KV_RE = re.compile(r"^(Status|Type|Subject|Location|Era|Pillar)\s*:\s*(.+?)\s*$")
@@ -43,6 +43,19 @@ def dedupe(seq):
         if item not in seen:
             seen.add(item)
             out.append(item)
+    return out
+
+
+def _item_sources(item):
+    """factCheck item sources: accepts 'sources' (list or string) and
+    singular 'url' (some package records use {"source":..., "url":...})."""
+    srcs = item.get("sources", [])
+    if isinstance(srcs, str):
+        srcs = [srcs]
+    out = [s for s in srcs if isinstance(s, str) and s]
+    url = item.get("url")
+    if isinstance(url, str) and url.startswith("http") and url not in out:
+        out.append(url)
     return out
 
 
@@ -84,11 +97,27 @@ def find_json_blocks(text):
 
 
 def parse_claim_group(lines):
-    """One claim: paragraph text plus '- url' bullets or 'Source:' lines."""
+    """One claim: paragraph text plus '- url' bullets, 'Source:' lines,
+    or fenced {"source": ..., "url": ...} JSON source blocks."""
     text_parts, sources = [], []
+    in_fence, fence_buf = False, []
     for line in lines:
         s = line.strip()
-        if not s:
+        if s.startswith("```"):
+            if in_fence:
+                try:
+                    obj = json.loads("\n".join(fence_buf))
+                except json.JSONDecodeError:
+                    obj = None
+                if isinstance(obj, dict):
+                    u = obj.get("url")
+                    if isinstance(u, str) and u.startswith("http"):
+                        sources.append(u)
+                fence_buf = []
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            fence_buf.append(line)
             continue
         urls = URL_RE.findall(s)
         if s.startswith("- "):
@@ -111,17 +140,18 @@ def parse_claim_group(lines):
 
 def parse_fact_check(lines):
     if any(H3_CLAIM_RE.match(line) for line in lines):
-        claims, buf = [], []
+        claims, buf, started = [], [], False
         for line in lines:
             if H3_CLAIM_RE.match(line):
-                if buf:
+                if started and buf:
                     claim = parse_claim_group(buf)
                     if claim:
                         claims.append(claim)
-                buf = []
-            else:
+                buf, started = [], True
+            elif started:
                 buf.append(line)
-        if buf:
+            # lines before the first "### Claim N" are section intro, not a claim
+        if started and buf:
             claim = parse_claim_group(buf)
             if claim:
                 claims.append(claim)
@@ -220,6 +250,38 @@ def parse_file(path):
             record[{"status": "status", "type": "postType", "subject": "subject",
                     "location": "location", "era": "era", "pillar": "pillar"}[key]] = hm.group(2)
 
+    # "## Prompt N of 200" metadata sections (format E): Key: value lines,
+    # sometimes pipe-joined ("Type: image | Status: text review pending")
+    for title, buf in sections:
+        if re.match(r"^Prompt\s+\d+", title):
+            for line in buf:
+                for seg in line.split("|"):
+                    hm = HEADER_KV_RE.match(seg.strip())
+                    if hm:
+                        key = hm.group(1).lower()
+                        field = {"status": "status", "type": "postType",
+                                 "subject": "subject", "location": "location",
+                                 "era": "era", "pillar": "pillar"}[key]
+                        if not record[field]:
+                            record[field] = hm.group(2).strip()
+            break
+    for line in preamble:
+        dm = re.match(r"^-\s*([A-Za-z][\w ]*?)\s*:\s*(.+?)\s*$", line.strip())
+        if not dm:
+            continue
+        key = dm.group(1).strip().lower()
+        value = dm.group(2).strip()
+        mapping = {"pillar": "pillar", "namedsubject": "subject",
+                   "subject": "subject", "location": "location", "era": "era",
+                   "topic": "title", "packagetype": "postType", "type": "postType",
+                   "status": "status"}
+        field = mapping.get(key.replace(" ", ""))
+        if field == "title":
+            if not record["title"]:
+                record["title"] = value
+        elif field and not record[field]:
+            record[field] = value
+
     # "## Post details" bullets (format A)
     for line in by_title.get("post details", []):
         pm = POST_DETAIL_RE.match(line.strip())
@@ -248,7 +310,7 @@ def parse_file(path):
         if isinstance(fc, list) and fc and isinstance(fc[0], dict):
             record["claims"] = [
                 {"claim": clean_md(strip_urls(str(item.get("claim", "")))),
-                 "sources": dedupe([s for s in item.get("sources", []) if isinstance(s, str)]),
+                 "sources": dedupe(s for s in _item_sources(item) if isinstance(s, str)),
                  "verificationStatus": str(item.get("status", ""))}
                 for item in fc if isinstance(item, dict)
             ]
@@ -265,11 +327,20 @@ def parse_file(path):
                 if meta.get(key) and not record[field]:
                     record[field] = str(meta[key]).strip()
 
-    # Markdown fact-check section (fallback when no structured JSON claims)
+    # Markdown fact-check section (fallback when no structured JSON claims).
+    # split_sections() splits "### Claim N" subheads into their own sections,
+    # so re-attach them to the fact-check buffer before parsing.
     if not record["claims"]:
-        for title, buf in sections:
+        for i, (title, buf) in enumerate(sections):
             if "fact check" in title.lower():
-                record["claims"] = parse_fact_check(buf)
+                merged = list(buf)
+                for t2, b2 in sections[i + 1:]:
+                    if re.match(r"^Claim\s+\d+", t2, re.I):
+                        merged.append("### " + t2)
+                        merged.extend(b2)
+                    else:
+                        break
+                record["claims"] = parse_fact_check(merged)
                 break
 
     for title, buf in sections:
