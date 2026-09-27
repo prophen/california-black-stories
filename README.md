@@ -10,7 +10,7 @@ The web app reads its project and dataset from `web/.env.local`. Copy `web/.env.
 
 ## Adding content later
 
-No custom schemas or content have been added. Define and register content types in `studio/schemaTypes/index.ts`, then run these commands from `studio/`:
+Content types (`story`, `person`, `place`, `source`) are defined in `studio/schemaTypes/` and registered in `studio/schemaTypes/index.ts`. After schema changes, run these commands from `studio/`:
 
 ```sh
 npx sanity schemas deploy
@@ -26,3 +26,16 @@ Use `client` from `@/sanity/lib/client` for direct published-content queries, `u
 This setup targets public, published content and needs no API token. Draft previews, Presentation, and Visual Editing can be added later with a suitable read-only token and authenticated draft-mode routes. Never put a secret token in a `NEXT_PUBLIC_` variable. The local web origin (`http://localhost:3000`) is registered for CORS.
 
 Before deploying the frontend, add its production origin using `npx sanity cors add https://your-domain.example` from `studio/`. Configure credentialed origins only if enabling authenticated previews.
+
+## Content model and ingest
+
+The Studio's content model mirrors the California Black Stories research archive:
+`story` documents carry the prompt number, pillar, publish status, caption,
+hashtags, and fact-check claims with source URLs; `person`, `place`, and
+`source` documents link back to the stories that reference them. See
+`CHALLENGE.md` for the full Sanity challenge-entry plan.
+
+`ingest/parse_notes.py` parses the Obsidian vault notes (all three note formats
+found in the vault) into normalized story records, and `ingest/to_ndjson.py`
+converts those records to NDJSON for `sanity dataset import`. The sample notes
+used to develop the parser live in `samples/`.
