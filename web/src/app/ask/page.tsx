@@ -3,12 +3,67 @@
 import { useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const STARTERS = [
   "Who was Biddy Mason?",
   "What is the story of Allensworth, California?",
   "Tell me about Black firefighters in Los Angeles.",
 ];
+
+const mdComponents: Components = {
+  p: ({ children }) => (
+    <p className="my-2 leading-7 first:mt-0 last:mb-0">{children}</p>
+  ),
+  h2: ({ children }) => (
+    <h2 className="mt-4 mb-2 text-lg font-semibold text-zinc-950 first:mt-0 dark:text-zinc-50">
+      {children}
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="mt-3 mb-1 text-base font-semibold text-zinc-950 first:mt-0 dark:text-zinc-50">
+      {children}
+    </h3>
+  ),
+  ul: ({ children }) => (
+    <ul className="my-2 list-disc space-y-1 pl-5">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="my-2 list-decimal space-y-1 pl-5">{children}</ol>
+  ),
+  li: ({ children }) => <li className="leading-7">{children}</li>,
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="font-medium break-words text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:decoration-zinc-700 dark:text-zinc-100 dark:decoration-zinc-500 dark:hover:decoration-zinc-300"
+    >
+      {children}
+    </a>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-semibold text-zinc-950 dark:text-zinc-50">
+      {children}
+    </strong>
+  ),
+  blockquote: ({ children }) => (
+    <blockquote className="my-2 border-l-2 border-zinc-300 pl-3 text-zinc-600 italic dark:border-zinc-700 dark:text-zinc-400">
+      {children}
+    </blockquote>
+  ),
+  code: ({ children }) => (
+    <code className="rounded bg-zinc-100 px-1 py-0.5 text-sm text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+      {children}
+    </code>
+  ),
+  pre: ({ children }) => (
+    <pre className="my-2 overflow-x-auto rounded-lg bg-zinc-100 p-3 text-sm dark:bg-zinc-800">
+      {children}
+    </pre>
+  ),
+};
 
 export default function AskPage() {
   const { messages, sendMessage, status, error } = useChat({
@@ -57,26 +112,38 @@ export default function AskPage() {
             </div>
           )}
 
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-            >
+          {messages.map((m) => {
+            const text = m.parts
+              .filter((part) => part.type === "text")
+              .map((part) => part.text)
+              .join("");
+            const isUser = m.role === "user";
+            return (
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-7 whitespace-pre-wrap ${
-                  m.role === "user"
-                    ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
-                    : "bg-white text-zinc-800 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:text-zinc-200 dark:ring-zinc-800"
-                }`}
+                key={m.id}
+                className={`flex ${isUser ? "justify-end" : "justify-start"}`}
               >
-                {m.parts.map((part, i) =>
-                  part.type === "text" ? (
-                    <span key={i}>{part.text}</span>
-                  ) : null,
-                )}
+                <div
+                  className={`max-w-[85%] rounded-2xl px-4 py-3 text-[15px] ${
+                    isUser
+                      ? "bg-zinc-900 text-zinc-50 whitespace-pre-wrap dark:bg-zinc-100 dark:text-zinc-900"
+                      : "bg-white text-zinc-800 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:text-zinc-200 dark:ring-zinc-800"
+                  }`}
+                >
+                  {isUser ? (
+                    <span>{text}</span>
+                  ) : (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={mdComponents}
+                    >
+                      {text}
+                    </ReactMarkdown>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {isLoading && messages[messages.length - 1]?.role === "user" && (
             <div className="flex justify-start">
