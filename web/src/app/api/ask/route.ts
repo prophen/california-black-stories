@@ -11,6 +11,7 @@ import { openai } from "@ai-sdk/openai";
 import { createMCPClient } from "@ai-sdk/mcp";
 import { client as sanityClient } from "@/sanity/lib/client";
 import { rateLimit, clientIp, limitResponse } from "@/lib/rate-limit";
+import { logQuestion } from "@/lib/db";
 
 export const maxDuration = 60;
 
@@ -48,6 +49,25 @@ const lookupStorySources = tool({
   },
 });
 
+// Pull the latest user question out of the UI message list for logging.
+function lastUserQuestion(messages: unknown[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i] as {
+      role?: string;
+      parts?: Array<{ type: string; text?: string }>;
+    };
+    if (m?.role === "user" && Array.isArray(m.parts)) {
+      const text = m.parts
+        .filter((p) => p.type === "text")
+        .map((p) => p.text ?? "")
+        .join(" ")
+        .trim();
+      if (text) return text.slice(0, 500);
+    }
+  }
+  return "";
+}
+
 export async function POST(req: Request) {
   // 20 questions per hour per visitor. Approximate on serverless, but stops
   // casual abuse from running up the OpenAI bill.
@@ -79,6 +99,9 @@ export async function POST(req: Request) {
 
   try {
     const { messages } = await req.json();
+
+    const question = lastUserQuestion(messages);
+    if (question) await logQuestion(question);
 
     // The KB outline, fetched once and injected so the model starts with the map.
     let outline = "";
