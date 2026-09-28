@@ -1,12 +1,15 @@
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
+  jsonSchema,
   stepCountIs,
   streamText,
+  tool,
   toUIMessageStream,
 } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { createMCPClient } from "@ai-sdk/mcp";
+import { client as sanityClient } from "@/sanity/lib/client";
 
 export const maxDuration = 60;
 
@@ -14,10 +17,35 @@ const SYSTEM_PROMPT = `You are the Ask California Black Stories assistant. You a
 
 Rules:
 1. Use the knowledge base tools for every factual claim. Never answer from your own training data, not even partially.
-2. Cite your sources. Name the story each fact comes from and include the source URLs the tool returns.
+2. Cite your sources. Name the story each fact comes from, then call lookup_story_sources with the story's exact title and include the real URLs it returns. Copy URLs exactly as returned; never invent a URL and never use "#" or any placeholder link. If the lookup returns no URLs, name the story without linking.
 3. If the knowledge base does not contain the answer, say so plainly and stop. Do not add background, context, or a summary from your own training data. A refusal followed by general-knowledge facts still violates this rule.
 4. If sources disagree about a fact, present both accounts side by side with their sources instead of silently choosing one.
 5. Keep answers focused and conversational: clear, direct, respectful.`;
+
+// The KB entries cite story titles but carry no URLs, so the model looks up
+// the real source URLs from the Sanity dataset before answering.
+const lookupStorySources = tool({
+  description:
+    "Look up the source URLs for a California Black Stories story by its exact title, as listed in the knowledge base Sources section. Call this for every story you cite, then include the returned URLs in your answer.",
+  inputSchema: jsonSchema<{ title: string }>({
+    type: "object",
+    properties: {
+      title: {
+        type: "string",
+        description: "The story's exact title",
+      },
+    },
+    required: ["title"],
+    additionalProperties: false,
+  }),
+  execute: async ({ title }) => {
+    const stories = await sanityClient.fetch(
+      `*[_type == "story" && title == $title]{title, sourceUrls}`,
+      { title },
+    );
+    return stories;
+  },
+});
 
 export async function POST(req: Request) {
   const mcpUrl = process.env.SANITY_CONTEXT_MCP_URL;
@@ -57,13 +85,15 @@ export async function POST(req: Request) {
     }
 
     const allTools = await mcpClient.tools();
-    let tools = allTools;
+    let kbTools = allTools;
     let system = SYSTEM_PROMPT;
     if (outline) {
       const { initial_context: _outlineAlreadyInjected, ...rest } = allTools;
-      tools = rest;
+      kbTools = rest;
       system = `${SYSTEM_PROMPT}\n\n# Knowledge base outline\n${outline}`;
     }
+
+    const tools = { ...kbTools, lookup_story_sources: lookupStorySources };
 
     const result = streamText({
       model: openai(process.env.OPENAI_MODEL || "gpt-4o-mini"),
