@@ -4,6 +4,8 @@ A chat agent that answers questions about Black history in California, grounded 
 
 Live: https://ask-california-black-stories.vercel.app/
 
+![Ask California Black Stories landing page](docs/screenshot-landing.png)
+
 Built for the [Sanity Challenge](https://dev.to/challenges/sanity-2026-09-16), Path One: Ship an Agent That Queries Real Content.
 
 ## The archive
@@ -20,6 +22,8 @@ Content model: `story`, `person`, `place`, `source`. Stories carry structured cl
 4. A story lookup tool hands the agent the real source URLs from the story documents, so citations link to actual sources. Knowledge base entries cite story titles but carry no URLs, and without the tool the model invented plausible-looking links. That bug was caught in testing and fixed before launch.
 
 Grounding rules enforced in the system prompt: answer only from the knowledge base, cite every claim with a real source URL, surface disagreements side by side instead of picking one, and refuse then stop when the archive does not cover the question.
+
+![Sample answer with cited sources](docs/screenshot-ask.png)
 
 ## Repo layout
 
