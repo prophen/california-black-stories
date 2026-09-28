@@ -10,6 +10,7 @@ import {
 import { openai } from "@ai-sdk/openai";
 import { createMCPClient } from "@ai-sdk/mcp";
 import { client as sanityClient } from "@/sanity/lib/client";
+import { rateLimit, clientIp, limitResponse } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
 
@@ -48,6 +49,12 @@ const lookupStorySources = tool({
 });
 
 export async function POST(req: Request) {
+  // 20 questions per hour per visitor. Approximate on serverless, but stops
+  // casual abuse from running up the OpenAI bill.
+  if (!rateLimit(clientIp(req), 20, 60 * 60 * 1000)) {
+    return limitResponse();
+  }
+
   const mcpUrl = process.env.SANITY_CONTEXT_MCP_URL;
   const mcpToken = process.env.SANITY_CONTEXT_TOKEN;
 

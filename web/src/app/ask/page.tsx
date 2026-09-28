@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -65,11 +66,22 @@ const mdComponents: Components = {
   ),
 };
 
-export default function AskPage() {
+function AskChat() {
+  const searchParams = useSearchParams();
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/ask" }),
   });
   const [input, setInput] = useState("");
+  const sentQueryRef = useRef(false);
+
+  // Prefill from the landing page's sample questions (e.g. /ask?q=Who+was+...).
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q && !sentQueryRef.current && status === "ready") {
+      sentQueryRef.current = true;
+      sendMessage({ text: q });
+    }
+  }, [searchParams, status, sendMessage]);
 
   const isLoading = status === "submitted" || status === "streaming";
 
@@ -183,5 +195,13 @@ export default function AskPage() {
         </form>
       </main>
     </div>
+  );
+}
+
+export default function AskPage() {
+  return (
+    <Suspense>
+      <AskChat />
+    </Suspense>
   );
 }
