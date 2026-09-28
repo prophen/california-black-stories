@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "California Black Stories",
+  title: "Ask California Black Stories",
   description:
     "Ask the archive: 150 fact-checked stories of Black history in California, with per-claim sources.",
   icons: {

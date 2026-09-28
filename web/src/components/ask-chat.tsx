@@ -65,7 +65,7 @@ const mdComponents: Components = {
   ),
 };
 
-export default function AskPage() {
+export default function AskChat() {
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/ask" }),
   });
