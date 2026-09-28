@@ -159,8 +159,22 @@ function AskChat() {
 
           {isLoading && messages[messages.length - 1]?.role === "user" && (
             <div className="flex justify-start">
-              <div className="rounded-2xl bg-white px-4 py-3 text-sm text-zinc-500 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:text-zinc-400 dark:ring-zinc-800">
-                Searching the knowledge base…
+              <div className="flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-zinc-500 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:text-zinc-400 dark:ring-zinc-800">
+                <span>Searching the knowledge base</span>
+                <span className="flex gap-1" aria-hidden="true">
+                  <span
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400 dark:bg-zinc-500"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <span
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400 dark:bg-zinc-500"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <span
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400 dark:bg-zinc-500"
+                    style={{ animationDelay: "300ms" }}
+                  />
+                </span>
               </div>
             </div>
           )}
