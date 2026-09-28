@@ -2,7 +2,7 @@
 
 A chat agent that answers questions about Black history in California, grounded in a real research archive. Every answer cites its sources. If the archive does not cover your question, the agent says so and stops.
 
-Live: https://ask-california-black-stories.vercel.app/
+Live: https://californiablackstories.com
 
 ![Ask California Black Stories landing page](docs/screenshot-landing.png)
 
