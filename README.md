@@ -23,6 +23,8 @@ Content model: `story`, `person`, `place`, `source`. Stories carry structured cl
 
 Grounding rules enforced in the system prompt: answer only from the knowledge base, cite every claim with a real source URL, surface disagreements side by side instead of picking one, and refuse then stop when the archive does not cover the question.
 
+![Sample answer with cited sources](docs/screenshot-ask.png)
+
 ## Repo layout
 
 - `studio/` — Sanity Studio: schema types for `story`, `person`, `place`, `source`
