@@ -85,6 +85,19 @@ function AskChat() {
 
   const isLoading = status === "submitted" || status === "streaming";
 
+  const messageText = (m: (typeof messages)[number]) =>
+    m.parts
+      .filter((part) => part.type === "text")
+      .map((part) => (part as { text: string }).text)
+      .join("");
+
+  const lastMessage = messages[messages.length - 1];
+  const showTyping =
+    isLoading &&
+    (!lastMessage ||
+      lastMessage.role === "user" ||
+      !messageText(lastMessage));
+
   const ask = (text: string) => {
     if (!text.trim() || isLoading) return;
     sendMessage({ text });
@@ -125,11 +138,9 @@ function AskChat() {
           )}
 
           {messages.map((m) => {
-            const text = m.parts
-              .filter((part) => part.type === "text")
-              .map((part) => part.text)
-              .join("");
+            const text = messageText(m);
             const isUser = m.role === "user";
+            if (!isUser && !text) return null;
             return (
               <div
                 key={m.id}
@@ -157,7 +168,7 @@ function AskChat() {
             );
           })}
 
-          {isLoading && messages[messages.length - 1]?.role === "user" && (
+          {showTyping && (
             <div className="flex justify-start">
               <div className="flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-zinc-500 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:text-zinc-400 dark:ring-zinc-800">
                 <span>Searching the knowledge base</span>
