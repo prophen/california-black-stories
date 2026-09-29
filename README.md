@@ -4,6 +4,8 @@ A chat agent that answers questions about Black history in California, grounded 
 
 Live: https://californiablackstories.com
 
+Video walkthrough: https://www.youtube.com/watch?v=hYWFyAtU46I
+
 ![Ask California Black Stories landing page](docs/screenshot-landing.png)
 
 Built for the [Sanity Challenge](https://dev.to/challenges/sanity-2026-09-16), Path One: Ship an Agent That Queries Real Content.
